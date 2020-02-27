@@ -18,7 +18,6 @@ Session = sessionmaker(bind=engine)
 session = Session()
 meta=MetaData()
 
-meta.drop_all(engine)
 meta.create_all(engine)
 
 
