@@ -1,24 +1,27 @@
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+from sqlalchemy.ext.declarative import declarative_base
+Base=declarative_base()
 
 
 db = SQLAlchemy()
-migrate = Migrate()
 
 
-class User(db.Model):
+class User(Base):
+    __tablename__ = 'user'
     username = db.Column(db.String(128))
     id = db.Column(db.BIGINT, primary_key=True)
 
 
-class BedHours(db.Model):
+class BedHours(Base):
+    __tablename__ = 'bedhours'
     id = db.Column(db.BIGINT, primary_key=True)
     user_id = db.Column(db.BIGINT, db.ForeignKey("user.id"))
     bedtime = db.Column(db.DateTime)
     waketime = db.Column(db.DateTime)
 
 
-class Mood(db.Model):
+class Mood(Base):
+    __tablename__ = 'mood'
     id = db.Column(db.BIGINT, primary_key=True)
     night_id = db.Column(db.BIGINT, db.ForeignKey("bedhours.id"), nullable=False)
     wake_mood = db.Column(db.Integer)
@@ -26,7 +29,8 @@ class Mood(db.Model):
     night_mood = db.Column(db.Integer)
 
 
-class Tiredness(db.Model):
+class Tiredness(Base):
+    __tablename__ = 'tiredness'
     id = db.Column(db.BIGINT, primary_key=True)
     night_id = db.Column(db.BIGINT, db.ForeignKey("bedhours.id"), nullable=False)
     wake_tired = db.Column(db.Integer)
