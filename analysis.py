@@ -1,25 +1,30 @@
-from Data_Science.create_database import User, BedHours, Mood, Tiredness, db
+from Data_Science.create_database import User, BedHours, Mood, Tiredness
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql import select
 import pandas as pd
+import os
+from sklearn.linear_model import LinearRegression
+
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 engine = create_engine(DATABASE_URL)
-Session = sessionmaker(bind=engine)
-session = Session()
+connection = engine.connect()
 
-#get username from front end
-username = "testuser"
+# get username from front end
+username = "Manuela9"
 
 df = pd.DataFrame()
 
-user_id = db.session.query(User.id).filter(User.username == username).one()
-bedtimes = db.session.query(BedHours.bedtime).filter(BedHours.user_id == user_id).all()
-bedtimes_ids = db.session.query(BedHours.night_id).filter(BedHours.user_id == user_id).all()
-waketimes = db.session.query(BedHours.waketime).filter(BedHours.user_id == user_id).all()
+user_id = connection.execute(select([User.id]).where(User.username == username))
+for result in user_id:
+    user_id = result[0]
+print(user_id)
+bedtimes = connection.execute(select([BedHours.bedtime]).where(BedHours.user_id == user_id))
+bedtimes_ids = connection.execute(select([BedHours.id]).where(BedHours.user_id == user_id))
+waketimes = connection.execute(select([BedHours.waketime]).where(BedHours.user_id == user_id))
 morning_mood_list = []
 midday_mood_list = []
 evening_mood_list = []
@@ -27,18 +32,24 @@ morning_tired_list = []
 midday_tired_list = []
 evening_tired_list = []
 for id in bedtimes_ids:
-    morning_mood = db.session.query(Mood.wake_mood).filter(Mood.night_id == id)
-    morning_mood_list.append(morning_mood)
-    midday_mood = db.session.query(Mood.midday_mood).filter(Mood.night_id == id)
-    midday_mood_list.append(midday_mood)
-    evening_mood = db.session.query(Mood.night_mood).filter(Mood.night_id == id)
-    evening_mood_list.append(evening_mood)
-    morning_tired = db.session.query(Tiredness.wake_tired).filter(Mood.night_id == id)
-    morning_tired_list.append(morning_tired)
-    midday_tired = db.session.query(Tiredness.midday_tired).filter(Tiredness.night_id == id)
-    midday_tired_list.append(midday_tired)
-    evening_tired = db.session.query(Tiredness.night_tired).filter(Tiredness.night_id == id)
-    evening_tired_list.append(evening_tired)
+    morning_mood = connection.execute(select([Mood.wake_mood]).where(Mood.night_id == id[0]))
+    for result in morning_mood:
+        morning_mood_list.append(result[0])
+    midday_mood = connection.execute(select([Mood.midday_mood]).where(Mood.night_id == id[0]))
+    for result in midday_mood:
+        midday_mood_list.append(result[0])
+    evening_mood = connection.execute(select([Mood.night_mood]).where(Mood.night_id == id[0]))
+    for result in evening_mood:
+        evening_mood_list.append(result[0])
+    morning_tired = connection.execute(select([Tiredness.wake_tired]).where(Mood.night_id == id[0]))
+    for result in morning_tired:
+        morning_tired_list.append(result[0])
+    midday_tired = connection.execute(select([Tiredness.midday_tired]).where(Tiredness.night_id == id[0]))
+    for result in midday_tired:
+        midday_tired_list.append(result[0])
+    evening_tired = connection.execute(select([Tiredness.night_tired]).where(Tiredness.night_id == id[0]))
+    for result in evening_tired:
+        evening_tired_list.append(result[0])
 
 for i in range(len(bedtimes)):
     df['bedtime'].iloc[i] = bedtimes[i]
@@ -51,4 +62,16 @@ for i in range(len(bedtimes)):
     df['midday_tired'].iloc[i] = midday_tired_list[i]
     df['evening_tired'].iloc[i] = evening_tired_list[i]
 
+# need to create model to predict hours necessary for maximum mood/lowest tiredness
+# target is hours in bed
+# create prediction with input of mood/tiredness integers
+# train model on each user, then create prediction of hours_in_bed with all 4s for mood and 1s for tired
+X = df.drop('hours_in_bed', axis=1)
+X = df.drop('bedtime', axis=1)
+X = df.drop('waketime', axis=1)
+y = df['hours_in_bed']
 
+model = LinearRegression()
+
+model.fit(X,y)
+print(X.columns)
