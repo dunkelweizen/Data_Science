@@ -3,22 +3,21 @@ from sqlalchemy import create_engine
 from sqlalchemy.sql import select
 import pandas as pd
 import os
-from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestRegressor
 from sqlalchemy.ext.declarative import declarative_base
 from flask_sqlalchemy import SQLAlchemy
 import numpy as np
-import datetime
 from database_models.models_package import User, BedHours, Tiredness, Mood
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV
 
-Base = declarative_base()
-
-db = SQLAlchemy()
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 engine = create_engine(DATABASE_URL)
 connection = engine.connect()
+
 
 def hours_analysis(username):
     print("getting user id")
@@ -46,7 +45,8 @@ def hours_analysis(username):
     evening_tired_list = []
     print('getting moods and tiredness')
     for id in bedtimes_ids_list:
-        mood = connection.execute(select([Mood.wake_mood, Mood.midday_mood, Mood.night_mood]).where(Mood.night_id == id))
+        mood = connection.execute(
+            select([Mood.wake_mood, Mood.midday_mood, Mood.night_mood]).where(Mood.night_id == id))
         for result in mood:
             morning_mood_list.append(result[0])
             midday_mood_list.append(result[1])
@@ -74,23 +74,24 @@ def hours_analysis(username):
     # create prediction with input of mood/tiredness integers
     # train model on each user, then create prediction of hours_in_bed with all 4s for mood and 1s for tired
     df['hours_in_bed'] = (df['waketime'] - df['bedtime'])
-    print(df['hours_in_bed'].dtype)
     X = df.drop('hours_in_bed', axis=1)
     X = X.drop('bedtime', axis=1)
     X = X.drop('waketime', axis=1)
     X = X.drop('night_id', axis=1)
-    y = df['hours_in_bed']
+    y = df['hours_in_bed'].dt.total_seconds()
+    X_train, X_test, y_train, y_test = train_test_split(X, y)
     print('training model')
-    model = LogisticRegression()
+    model = RandomForestRegressor(n_jobs=-1, max_depth=55, min_samples_leaf=6, min_samples_split=8, n_estimators=850)
 
-    model.fit(X, y)
-
-    optimal_hours = model.predict([[4, 4, 4, 1, 1, 1]]) / np.timedelta64(1, 'h')
-    averages = np.array([df['hours_in_bed'].mean().seconds/3600, (sum(morning_mood_list)/len(morning_mood_list)), (sum(midday_mood_list)/len(midday_mood_list)),
-                (sum(evening_mood_list)/len(evening_mood_list)), (sum(morning_tired_list)/len(morning_tired_list)),
-                (sum(midday_tired_list)/len(midday_tired_list)), (sum(evening_tired_list)/len(evening_tired_list))])
+    model.fit(X_train, y_train)
+    optimal_hours = (model.predict([[4, 4, 4, 1, 1, 1]])) / 3600
+    averages = np.array([str(df['hours_in_bed'].mean()), (sum(morning_mood_list) / len(morning_mood_list)),
+                         (sum(midday_mood_list) / len(midday_mood_list)),
+                         (sum(evening_mood_list) / len(evening_mood_list)),
+                         (sum(morning_tired_list) / len(morning_tired_list)),
+                         (sum(midday_tired_list) / len(midday_tired_list)),
+                         (sum(evening_tired_list) / len(evening_tired_list))])
     return optimal_hours, averages
-
 
 def sleep_averages(username):
     user_id = connection.execute(select([User.id]).where(User.username == username))
@@ -117,7 +118,8 @@ def sleep_averages(username):
     evening_tired_list = []
     print('getting moods and tiredness')
     for id in bedtimes_ids_list:
-        mood = connection.execute(select([Mood.wake_mood, Mood.midday_mood, Mood.night_mood]).where(Mood.night_id == id))
+        mood = connection.execute(
+            select([Mood.wake_mood, Mood.midday_mood, Mood.night_mood]).where(Mood.night_id == id))
         for result in mood:
             morning_mood_list.append(result[0])
             midday_mood_list.append(result[1])
@@ -132,7 +134,7 @@ def sleep_averages(username):
     for i in range(len(bedtimes_ids_list)):
         hours = waketimes_list[i] - bedtimes_list[i]
         hours_in_bed.append(hours.seconds / 3600)
-    avg_hours_in_bed = (sum(hours_in_bed)/len(hours_in_bed))
+    avg_hours_in_bed = (sum(hours_in_bed) / len(hours_in_bed))
     averages = np.array([avg_hours_in_bed, (sum(morning_mood_list) / len(morning_mood_list)),
                          (sum(midday_mood_list) / len(midday_mood_list)),
                          (sum(evening_mood_list) / len(evening_mood_list)),
