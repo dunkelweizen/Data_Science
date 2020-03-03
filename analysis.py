@@ -8,8 +8,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from flask_sqlalchemy import SQLAlchemy
 import numpy as np
 from database_models.models_package import User, BedHours, Tiredness, Mood
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import mean_squared_error
 
 load_dotenv()
 
@@ -17,7 +16,6 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 engine = create_engine(DATABASE_URL)
 connection = engine.connect()
-
 
 def hours_analysis(username):
     print("getting user id")
@@ -45,8 +43,7 @@ def hours_analysis(username):
     evening_tired_list = []
     print('getting moods and tiredness')
     for id in bedtimes_ids_list:
-        mood = connection.execute(
-            select([Mood.wake_mood, Mood.midday_mood, Mood.night_mood]).where(Mood.night_id == id))
+        mood = connection.execute(select([Mood.wake_mood, Mood.midday_mood, Mood.night_mood]).where(Mood.night_id == id))
         for result in mood:
             morning_mood_list.append(result[0])
             midday_mood_list.append(result[1])
@@ -79,19 +76,16 @@ def hours_analysis(username):
     X = X.drop('waketime', axis=1)
     X = X.drop('night_id', axis=1)
     y = df['hours_in_bed'].dt.total_seconds()
-    X_train, X_test, y_train, y_test = train_test_split(X, y)
     print('training model')
-    model = RandomForestRegressor(n_jobs=-1, max_depth=55, min_samples_leaf=6, min_samples_split=8, n_estimators=850)
+    model = RandomForestRegressor(n_jobs=-1, max_depth=30, min_samples_leaf = 2, min_samples_split=11, n_estimators=850)
 
-    model.fit(X_train, y_train)
+    model.fit(X, y)
     optimal_hours = (model.predict([[4, 4, 4, 1, 1, 1]])) / 3600
-    averages = np.array([str(df['hours_in_bed'].mean()), (sum(morning_mood_list) / len(morning_mood_list)),
-                         (sum(midday_mood_list) / len(midday_mood_list)),
-                         (sum(evening_mood_list) / len(evening_mood_list)),
-                         (sum(morning_tired_list) / len(morning_tired_list)),
-                         (sum(midday_tired_list) / len(midday_tired_list)),
-                         (sum(evening_tired_list) / len(evening_tired_list))])
+    averages = np.array([str(df['hours_in_bed'].mean()), (sum(morning_mood_list)/len(morning_mood_list)), (sum(midday_mood_list)/len(midday_mood_list)),
+                (sum(evening_mood_list)/len(evening_mood_list)), (sum(morning_tired_list)/len(morning_tired_list)),
+                (sum(midday_tired_list)/len(midday_tired_list)), (sum(evening_tired_list)/len(evening_tired_list))])
     return optimal_hours, averages
+
 
 def sleep_averages(username):
     user_id = connection.execute(select([User.id]).where(User.username == username))
@@ -118,8 +112,7 @@ def sleep_averages(username):
     evening_tired_list = []
     print('getting moods and tiredness')
     for id in bedtimes_ids_list:
-        mood = connection.execute(
-            select([Mood.wake_mood, Mood.midday_mood, Mood.night_mood]).where(Mood.night_id == id))
+        mood = connection.execute(select([Mood.wake_mood, Mood.midday_mood, Mood.night_mood]).where(Mood.night_id == id))
         for result in mood:
             morning_mood_list.append(result[0])
             midday_mood_list.append(result[1])
@@ -134,7 +127,7 @@ def sleep_averages(username):
     for i in range(len(bedtimes_ids_list)):
         hours = waketimes_list[i] - bedtimes_list[i]
         hours_in_bed.append(hours.seconds / 3600)
-    avg_hours_in_bed = (sum(hours_in_bed) / len(hours_in_bed))
+    avg_hours_in_bed = (sum(hours_in_bed)/len(hours_in_bed))
     averages = np.array([avg_hours_in_bed, (sum(morning_mood_list) / len(morning_mood_list)),
                          (sum(midday_mood_list) / len(midday_mood_list)),
                          (sum(evening_mood_list) / len(evening_mood_list)),
