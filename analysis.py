@@ -4,11 +4,13 @@ from sqlalchemy.sql import select
 import pandas as pd
 import os
 from sklearn.ensemble import RandomForestRegressor
-from sqlalchemy.ext.declarative import declarative_base
-from flask_sqlalchemy import SQLAlchemy
 import numpy as np
 from database_models.models_package import User, BedHours, Tiredness, Mood
 from sklearn.metrics import mean_squared_error
+from math import sqrt
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
 
 load_dotenv()
 
@@ -75,10 +77,10 @@ def hours_analysis(username):
     X = X.drop('bedtime', axis=1)
     X = X.drop('waketime', axis=1)
     X = X.drop('night_id', axis=1)
-    y = df['hours_in_bed'].dt.total_seconds()
+    y = df['hours_in_bed'].dt.total_seconds().astype('int')
     print('training model')
-    model = RandomForestRegressor(n_jobs=-1, max_depth=30, min_samples_leaf = 2, min_samples_split=11, n_estimators=850)
-
+    #model = RandomForestRegressor(n_jobs=-1, max_depth=30, min_samples_leaf = 2, min_samples_split=11, n_estimators=850)
+    model = make_pipeline(PolynomialFeatures(degree=3), LinearRegression())
     model.fit(X, y)
     optimal_hours = (model.predict([[4, 4, 4, 1, 1, 1]])) / 3600
     averages = np.array([str(df['hours_in_bed'].mean()), (sum(morning_mood_list)/len(morning_mood_list)), (sum(midday_mood_list)/len(midday_mood_list)),
