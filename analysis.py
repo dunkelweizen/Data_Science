@@ -3,14 +3,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.sql import select
 import pandas as pd
 import os
-from sklearn.ensemble import RandomForestRegressor
 import numpy as np
 from database_models.models_package import User, BedHours, Tiredness, Mood
-from sklearn.metrics import mean_squared_error
-from math import sqrt
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression
+
 
 load_dotenv()
 
@@ -80,12 +78,12 @@ def hours_analysis(username):
     y = df['hours_in_bed'].dt.total_seconds().astype('int')
     print('training model')
     #model = RandomForestRegressor(n_jobs=-1, max_depth=30, min_samples_leaf = 2, min_samples_split=11, n_estimators=850)
-    model = make_pipeline(PolynomialFeatures(degree=3), LinearRegression())
+    model = make_pipeline(PolynomialFeatures(degree=2), LinearRegression())
     model.fit(X, y)
     optimal_hours = (model.predict([[4, 4, 4, 1, 1, 1]])) / 3600
-    averages = np.array([str(df['hours_in_bed'].mean()), (sum(morning_mood_list)/len(morning_mood_list)), (sum(midday_mood_list)/len(midday_mood_list)),
-                (sum(evening_mood_list)/len(evening_mood_list)), (sum(morning_tired_list)/len(morning_tired_list)),
-                (sum(midday_tired_list)/len(midday_tired_list)), (sum(evening_tired_list)/len(evening_tired_list))])
+    mood_average = ((sum(morning_mood_list)/len(morning_mood_list)) + (sum(midday_mood_list)/len(midday_mood_list)) + (sum(evening_mood_list)/len(evening_mood_list))) / 3
+    tired_average = ((sum(morning_tired_list)/len(morning_tired_list)) + (sum(midday_tired_list)/len(midday_tired_list)) + (sum(evening_tired_list)/len(evening_tired_list))) / 3
+    averages = np.array([str(df['hours_in_bed'].mean()), mood_average, tired_average])
     return optimal_hours, averages
 
 
@@ -137,3 +135,4 @@ def sleep_averages(username):
                          (sum(midday_tired_list) / len(midday_tired_list)),
                          (sum(evening_tired_list) / len(evening_tired_list))])
     return averages
+
