@@ -1,0 +1,7 @@
+flask_sqlalchemy
+sqlalchemy
+python-dotenv
+pandas
+os
+numpy
+scikit-learn
