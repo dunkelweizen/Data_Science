@@ -54,7 +54,6 @@ def hours_analysis(username):
             morning_tired_list.append(result[0])
             midday_tired_list.append(result[1])
             evening_tired_list.append(result[2])
-
     print('creating dataframe for analysis')
     df = pd.DataFrame(columns=['night_id', 'bedtime', 'waketime', 'morning_mood', 'midday_mood', 'evening_mood',
                                'morning_tired', 'midday_tired', 'evening_tired'])
@@ -71,6 +70,11 @@ def hours_analysis(username):
     # create prediction with input of mood/tiredness integers
     # train model on each user, then create prediction of hours_in_bed with all 4s for mood and 1s for tired
     df['hours_in_bed'] = (df['waketime'] - df['bedtime'])
+    for column in df.columns:
+        if column != 'night_id' and column != 'bedtime' and column != 'waketime':
+            df[column] = df[column].fillna(df[column].mean())
+        if column == 'bedtime' or column == 'waketime':
+            df[column] = df[column].dropna()
     X = df.drop('hours_in_bed', axis=1)
     X = X.drop('bedtime', axis=1)
     X = X.drop('waketime', axis=1)
@@ -80,7 +84,13 @@ def hours_analysis(username):
     #model = RandomForestRegressor(n_jobs=-1, max_depth=30, min_samples_leaf = 2, min_samples_split=11, n_estimators=850)
     model = make_pipeline(PolynomialFeatures(degree=2), LinearRegression())
     model.fit(X, y)
-    optimal_hours = (model.predict([[4, 4, 4, 1, 1, 1]])) / 3600
+    optimal_hours = (model.predict([[3,3,3, 1, 1, 1]])) / 3600
+    morning_mood_list = [i for i in morning_mood_list if i]
+    midday_mood_list = [i for i in midday_mood_list if i]
+    evening_mood_list = [i for i in evening_mood_list if i]
+    morning_tired_list = [i for i in morning_tired_list if i]
+    midday_tired_list = [i for i in midday_tired_list if i]
+    evening_tired_list = [i for i in evening_tired_list if i]
     mood_average = ((sum(morning_mood_list)/len(morning_mood_list)) + (sum(midday_mood_list)/len(midday_mood_list)) + (sum(evening_mood_list)/len(evening_mood_list))) / 3
     tired_average = ((sum(morning_tired_list)/len(morning_tired_list)) + (sum(midday_tired_list)/len(midday_tired_list)) + (sum(evening_tired_list)/len(evening_tired_list))) / 3
     averages = np.array([str(df['hours_in_bed'].mean()), mood_average, tired_average])
